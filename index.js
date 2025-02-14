@@ -1,25 +1,37 @@
-// Blackbeard Voice Backend for Render Deployment
-// Dependencies and Configuration
+// Load environment variables
 require('dotenv').config();
+
 const express = require('express');
 const axios = require('axios');
+const cors = require('cors');
+const morgan = require('morgan');
 
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-// Middleware Setup
+// 🛡️ Middleware
+app.use(cors());
+app.use(morgan('dev'));
 app.use(express.json());
 
-// Webhook Endpoint for Receiving ChatGPT Text and Calling Eleven Labs
+// ✅ Health Check Endpoint
+app.get('/', (req, res) => {
+    res.json({ message: 'Blackbeard Backend is running!' });
+});
+
+// 🏴‍☠️ Webhook Endpoint for Zapier
 app.post('/webhook', async (req, res) => {
     const { text } = req.body;
+
+    // 🛑 Validate Input
     if (!text) {
         return res.status(400).json({ error: 'Text is required' });
     }
-    console.log('Received from Zapier:', text);
+
+    console.log('🏴‍☠️ Received from Zapier:', text);
 
     try {
-        // Eleven Labs Text-to-Speech API Call
+        // 1️⃣ 🎙️ Generate Speech with Eleven Labs
         const elevenLabsResponse = await axios.post(
             `https://api.elevenlabs.io/v1/text-to-speech/${process.env.ELEVENLABS_VOICE_ID}`,
             { text },
@@ -27,29 +39,48 @@ app.post('/webhook', async (req, res) => {
                 headers: {
                     'Content-Type': 'application/json',
                     'xi-api-key': process.env.ELEVENLABS_API_KEY,
+                    'Authorization': `Bearer ${process.env.ELEVENLABS_API_KEY}`,
                 },
                 responseType: 'arraybuffer'
             }
         );
 
-        // Create Base64 Audio URL for GitHub Pages
         const audioBase64 = Buffer.from(elevenLabsResponse.data).toString('base64');
+        const audioUrl = `data:audio/mpeg;base64,${audioBase64}`;
+        console.log('🎙️ Eleven Labs audio generated.');
+
+        // 2️⃣ 🚀 Send Response to GitHub Pages URL
+        const githubResponse = await axios.post(
+            `${process.env.GITHUB_PAGES_URL}/audio-receiver`, // Ensure your GitHub Pages can handle POST
+            {
+                text,
+                audioUrl
+            },
+            {
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            }
+        );
+
+        console.log('🚀 Sent to GitHub Pages:', githubResponse.status);
+
+        // ✅ Respond back to Zapier
         res.status(200).json({
-            text,
-            audioUrl: `data:audio/mpeg;base64,${audioBase64}`
+            message: 'Voice generated and sent to GitHub Pages!',
+            audioUrl
         });
+
     } catch (error) {
-        console.error('Error generating speech:', error.response?.data || error.message);
-        res.status(500).json({ error: 'Failed to generate audio' });
+        console.error('❌ Error:', error.response?.data || error.message);
+        res.status(500).json({
+            error: 'Failed to process request',
+            details: error.response?.data || error.message
+        });
     }
 });
 
-// Health Check Endpoint
-app.get('/', (req, res) => {
-    res.json({ message: 'Blackbeard Backend is running!' });
-});
-
-// Server Initialization
+// 🚀 Start the Server
 app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+    console.log(`⚓ Blackbeard Backend is running on port ${PORT}`);
 });
