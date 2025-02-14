@@ -1,31 +1,32 @@
-// Load environment variables
 require('dotenv').config();
-
 const express = require('express');
-const axios = require('axios');
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-// Middleware to parse JSON requests
+// Middleware
 app.use(express.json());
 
 // Webhook Endpoint for Zapier
 app.post('/webhook', async (req, res) => {
-    const { text } = req.body;
+    const { audioBase64, text } = req.body;
 
-    if (!text) {
-        return res.status(400).json({ error: 'Text is required' });
+    if (!audioBase64 || !text) {
+        return res.status(400).json({ error: 'Both audioBase64 and text are required' });
     }
 
-    console.log('Received from Zapier:', text);
+    console.log('✅ Received Audio and Text from Zapier');
 
-    // Simulate sending to GitHub Pages
-    const responsePayload = {
-        text,
-        audioUrl: `${process.env.GITHUB_PAGES_URL}/audio/sample.mp3` // Example URL
-    };
+    // Construct GitHub Pages URL
+    const audioUrl = `${process.env.GITHUB_PAGES_URL}/audio/generated-${Date.now()}.mp3`;
 
-    res.status(200).json(responsePayload);
+    // Return structured JSON for Zapier
+    res.setHeader('Content-Type', 'application/json');
+    res.status(200).json({
+        status: 'success',
+        text: text,
+        audioUrl: audioUrl,
+        message: 'Response from Blackbeard AI'
+    });
 });
 
 // Health Check Endpoint
@@ -33,23 +34,7 @@ app.get('/', (req, res) => {
     res.json({ message: 'Blackbeard Backend is running!' });
 });
 
-// Start the Server
+// Start Server
 app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+    console.log(`⚓ Server running on port ${PORT}`);
 });
-
-// Added build script to support Render deployments
-const fs = require('fs');
-if (!fs.existsSync('package.json')) {
-    fs.writeFileSync('package.json', JSON.stringify({
-        name: 'blackbeard-backend',
-        version: '1.0.0',
-        scripts: {
-            start: 'node index.js',
-            build: "echo 'No build step needed'"
-        },
-        engines: {
-            node: '>=18.0.0'
-        }
-    }, null, 2));
-}
