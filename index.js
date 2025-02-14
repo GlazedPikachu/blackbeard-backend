@@ -19,7 +19,7 @@ app.post('/webhook', async (req, res) => {
 
     console.log('Received from Zapier:', text);
 
-    // Simulate sending to GitHub Pages (if needed)
+    // Simulate sending to GitHub Pages
     const responsePayload = {
         text,
         audioUrl: `${process.env.GITHUB_PAGES_URL}/audio/sample.mp3` // Example URL
@@ -37,3 +37,19 @@ app.get('/', (req, res) => {
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
+
+// Added build script to support Render deployments
+const fs = require('fs');
+if (!fs.existsSync('package.json')) {
+    fs.writeFileSync('package.json', JSON.stringify({
+        name: 'blackbeard-backend',
+        version: '1.0.0',
+        scripts: {
+            start: 'node index.js',
+            build: "echo 'No build step needed'"
+        },
+        engines: {
+            node: '>=18.0.0'
+        }
+    }, null, 2));
+}
